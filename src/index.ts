@@ -15,6 +15,7 @@ const notifier =
 const orders = new OrderService(new Store(), gateway, {
   publicBaseUrl: config.publicBaseUrl,
   paymentExpiryMinutes: config.paymentExpiryMinutes,
+  feesPassedToCustomer: config.paystackFeesPassedToCustomer,
   notifier,
 });
 

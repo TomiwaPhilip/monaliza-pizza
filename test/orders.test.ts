@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { OrderError, OrderService, type Notifier } from '../src/orders.js';
+import { OrderError, OrderService, checkoutAmountWithFees, type Notifier } from '../src/orders.js';
 import { PaystackError } from '../src/paystack.js';
 import { Store, normalizeCode, normalizePhone } from '../src/store.js';
 import { FakeGateway } from './fake-gateway.js';
@@ -187,6 +187,17 @@ describe('kitchen flow and lookups', () => {
 });
 
 describe('normalisers', () => {
+  it('estimates the Paystack checkout amount when fees are passed to the customer', async () => {
+    // Observed on a real test checkout: a ₦6,500 order showed "Pay NGN 6,700.51".
+    expect(checkoutAmountWithFees(6500)).toBe(6700.51);
+    expect(checkoutAmountWithFees(2000)).toBe(2030.46); // ₦100 flat fee waived under ₦2,500
+    expect(checkoutAmountWithFees(200000)).toBe(202000); // fee capped at ₦2,000
+    const withFees = new OrderService(new Store(), gateway, { publicBaseUrl: 'x', paymentExpiryMinutes: 30, feesPassedToCustomer: true });
+    const order = await withFees.createOrder({ customer_name: 'A', items: [{ item_id: 'margherita', size: 'small', quantity: 1 }] });
+    expect(order.amount_to_pay_at_checkout).toBe('₦6,700.51');
+    expect(order.what_to_tell_customer).toContain('₦6,700.51');
+  });
+
   it('normalises codes and phones', () => {
     expect(normalizeCode(' mp 4821 ')).toBe('MP-4821');
     expect(normalizeCode('4821')).toBe('MP-4821');

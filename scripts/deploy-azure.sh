@@ -55,6 +55,7 @@ ENVS=(
   "MCP_AUTH_TOKEN=secretref:mcp-token"
   "KITCHEN_PASSWORD=secretref:kitchen-password"
   "PAYMENT_EXPIRY_MINUTES=${PAYMENT_EXPIRY_MINUTES:-30}"
+  "PAYSTACK_FEES_PASSED_TO_CUSTOMER=${PAYSTACK_FEES_PASSED_TO_CUSTOMER:-false}"
   "CHORD_BASE_URL=${CHORD_BASE_URL:-https://api.chordhq.xyz}"
   # Secret changes alone don't restart a Container App; a changed env var forces a new revision.
   "DEPLOYED_AT=$(date +%s)"

@@ -6,6 +6,8 @@ export interface Config {
   paystackSecretKey: string;
   paystackBaseUrl: string;
   paymentExpiryMinutes: number;
+  /** Mirrors the Paystack dashboard setting that makes the customer pay the transaction fee. */
+  paystackFeesPassedToCustomer: boolean;
   chord: {
     apiKey?: string;
     baseUrl: string;
@@ -34,6 +36,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     paystackSecretKey,
     paystackBaseUrl: env.PAYSTACK_BASE_URL ?? 'https://api.paystack.co',
     paymentExpiryMinutes: Number(env.PAYMENT_EXPIRY_MINUTES ?? 30),
+    paystackFeesPassedToCustomer: env.PAYSTACK_FEES_PASSED_TO_CUSTOMER === 'true',
     chord: {
       apiKey: env.CHORD_API_KEY?.trim() || undefined,
       baseUrl: (env.CHORD_BASE_URL ?? 'https://api.chordhq.xyz').replace(/\/$/, ''),

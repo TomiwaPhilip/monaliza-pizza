@@ -64,11 +64,23 @@ export function formatNaira(amount: number): string {
   return `₦${amount.toLocaleString('en-NG')}`;
 }
 
+/**
+ * What Paystack will charge when the account passes fees to the customer.
+ * Paystack Nigeria local pricing: 1.5% + NGN 100 (the NGN 100 is waived under NGN 2,500), capped at NGN 2,000.
+ * Paystack grosses up so the merchant still receives the order total.
+ */
+export function checkoutAmountWithFees(total: number): number {
+  const flat = total < 2500 ? 0 : 100;
+  const grossed = (total + flat) / (1 - 0.015);
+  const amount = grossed - total > 2000 ? total + 2000 : grossed;
+  return Math.round(amount * 100) / 100;
+}
+
 export class OrderService {
   constructor(
     public store: Store,
     private gateway: PaymentGateway,
-    private opts: { publicBaseUrl: string; paymentExpiryMinutes: number; notifier?: Notifier; now?: () => number },
+    private opts: { publicBaseUrl: string; paymentExpiryMinutes: number; feesPassedToCustomer?: boolean; notifier?: Notifier; now?: () => number },
   ) {}
 
   private now(): number {
@@ -328,6 +340,10 @@ export class OrderService {
       notes: order.notes,
       total: formatNaira(order.total),
       total_naira: order.total,
+      amount_to_pay_at_checkout: this.opts.feesPassedToCustomer ? formatNaira(checkoutAmountWithFees(order.total)) : formatNaira(order.total),
+      paystack_fee_note: this.opts.feesPassedToCustomer
+        ? `Paystack adds its processing fee at checkout, so the customer pays about ${formatNaira(checkoutAmountWithFees(order.total))}.`
+        : undefined,
       payment_link: order.status === 'awaiting_payment' ? latest?.authorization_url : undefined,
       payment_link_expires_in_minutes:
         order.status === 'awaiting_payment'
@@ -343,7 +359,9 @@ export class OrderService {
   private explain(order: Order, queue?: { position: number; minutes: number }): string {
     switch (order.status) {
       case 'awaiting_payment':
-        return `Waiting for payment of ${formatNaira(order.total)}. Send the payment link. The kitchen starts the order once payment is confirmed.`;
+        return this.opts.feesPassedToCustomer
+          ? `Waiting for payment. Order total ${formatNaira(order.total)}; with Paystack's processing fee the checkout shows about ${formatNaira(checkoutAmountWithFees(order.total))}. Tell the customer both amounts up front, then send the payment link. The kitchen starts once payment is confirmed.`
+          : `Waiting for payment of ${formatNaira(order.total)}. Send the payment link. The kitchen starts the order once payment is confirmed.`;
       case 'payment_failed':
         return `The last payment attempt failed${this.latestAttempt(order)?.gateway_response ? ` (${this.latestAttempt(order)?.gateway_response})` : ''}. Nothing was charged. Offer a new payment link with retry_payment.`;
       case 'expired':
