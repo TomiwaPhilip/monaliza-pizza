@@ -2,7 +2,7 @@
 
 *For the owner of Monaliza Pizza.*
 
-**What it does.** Customers message your WhatsApp number from anywhere in the park. The assistant shows today's menu and prices, takes their order, and sends a Paystack link to pay by card, transfer or USSD. Once Paystack confirms the payment, the order appears on your **kitchen board** (a web page on your phone or tablet). You tap **Start preparing**, then **Ready**, then **Collected** when they pick it up with their order code (e.g. MP-4821). When customers ask "is it ready?", the assistant answers from your board, so you don't have to. From the board you can also mark an item **sold out**, or **pause WhatsApp orders** when you're overwhelmed.
+**What it does.** Customers message your WhatsApp number from anywhere in the park. The assistant shows today's menu and prices, takes their order, and sends a Paystack link to pay by card, transfer or USSD. Once Paystack confirms the payment, the order appears on your **kitchen board**, a web page you open on your phone or tablet (`https://<your-server>/kitchen`, protected by a password we give you; see the [screenshot](kitchen-board.png)). You tap **Start preparing**, then **Ready**, then **Collected** when they pick it up with their order code (e.g. MP-4821). When customers ask "is it ready?", the assistant answers from your board, so you don't have to. From the board you can also mark an item **sold out**, or **pause WhatsApp orders** when you're overwhelmed.
 
 **What it doesn't do.** No delivery inside the park, no cash for WhatsApp orders, and no refunds, discounts or complaint handling. The assistant sends those customers to you at the kiosk. It can't cancel a paid order. It doesn't know about allergens beyond "everything may contain gluten, dairy and nuts".
 
