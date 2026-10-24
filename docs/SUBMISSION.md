@@ -8,7 +8,7 @@
 - Agent: live on my Chord account (teammate "Monaliza Pizza"). Simulator: https://chat.tsglabs.dev/c/YJMfoXFJX3K-nwzsHntrzkG4
 - Code: https://github.com/TomiwaPhilip/monaliza-pizza
 - Tool server: https://monaliza-pizza-tools.redbush-948401c2.southafricanorth.azurecontainerapps.io (MCP at `/mcp`)
-- Recording: *add link*
+- Recording: [*Public Drive*](https://drive.google.com/file/d/13EweiyJHMx1HttC6rur7Eg7WlDkrduFs/view?usp=sharing)
 - Field notes: [docs/FIELD_NOTES.md](FIELD_NOTES.md)
 - Go-live note: [docs/GO_LIVE.md](GO_LIVE.md)
 - Live test log: [docs/TEST_LOG.md](TEST_LOG.md)
