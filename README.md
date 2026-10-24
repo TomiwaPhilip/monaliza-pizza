@@ -15,6 +15,7 @@ This repo contains:
 | [`scripts/smoke-test.mjs`](scripts/smoke-test.mjs) | Calls the deployed server over MCP, the same way Chord does |
 | [`docs/FIELD_NOTES.md`](docs/FIELD_NOTES.md) | Deployment field notes (problems hit, how they were diagnosed, and what Chord could change) |
 | [`docs/GO_LIVE.md`](docs/GO_LIVE.md) | Go-live note for the business owner |
+| [`docs/TEST_LOG.md`](docs/TEST_LOG.md) | Live simulator test log: happy path, off-menu items, misspellings, gibberish, fake "I paid" and the ready confirmation |
 
 ## How it works
 
@@ -46,7 +47,7 @@ Design choices worth knowing:
 ```bash
 cp .env.example .env         # add your Paystack TEST secret key (sk_test_...)
 npm install
-npm test                     # 28 tests: order rules, payments, webhook signature, MCP end to end
+npm test                     # 29 tests: order rules, payments, webhook signature, MCP end to end
 npm run dev                  # http://localhost:8080  (MCP at /mcp, board at /kitchen)
 ```
 
@@ -71,14 +72,17 @@ Then in the **Paystack dashboard (Test mode) → Settings → API Keys & Webhook
    ```bash
    node scripts/chord-setup.mjs   # register MCP server → scope to teammate → enable → discover tools → health → publish skill
    ```
-3. Test in the WhatsApp simulator (https://chat.tsglabs.dev).
+3. Test in the WhatsApp simulator: https://chat.tsglabs.dev/c/YJMfoXFJX3K-nwzsHntrzkG4
+
+If your Paystack account passes transaction fees to customers, set `PAYSTACK_FEES_PASSED_TO_CUSTOMER=true`. The agent then quotes the checkout amount including the fee.
 
 **Paystack test cards** (any future expiry): success `4084 0840 8408 4081`, CVV `408`, no PIN/OTP. Declined `4084 0800 0000 5408`, CVV `001`. Insufficient funds `4084 0800 0067 0037`, CVV `787`. Use the declined card to see the failure → `retry_payment` path.
 
 ## Tested
 
-- `npm test`: 28 passing tests. They cover pricing, sold-out, oversize and paused orders; Paystack down (no order kept); verify-based payment; idempotent webhook; underpayment → review; declined → retry → paid; expiry; Paystack verify outage during status checks; cancel rules; the kitchen state machine with a single ready notification; queue order; phone formats; the MCP protocol end to end with a real client; webhook signature rejection; kitchen auth and the cross-site POST block.
-- The live deployment was checked with `scripts/smoke-test.mjs`: 401 without the token, 6 tools discovered, menu served, and Paystack errors surfaced as handled tool errors.
+- `npm test`: 29 passing tests. They cover pricing, sold-out, oversize and paused orders; Paystack down (no order kept); verify-based payment; idempotent webhook; underpayment → review; declined → retry → paid; expiry; Paystack verify outage during status checks; cancel rules; the kitchen state machine with a single ready notification; queue order; phone formats; the MCP protocol end to end with a real client; webhook signature rejection; kitchen auth and the cross-site POST block.
+- The live deployment was checked with `scripts/smoke-test.mjs`: 401 without the token, 6 tools discovered, menu served, and a real Paystack link created, verified and cancelled.
+- Tested end to end in the Chord WhatsApp simulator (see [docs/TEST_LOG.md](docs/TEST_LOG.md)): real Paystack test payments, the kitchen board moving orders to Ready, and adversarial messages. The whole run used 0.68 Chord credits.
 
 ## How I used AI tools
 

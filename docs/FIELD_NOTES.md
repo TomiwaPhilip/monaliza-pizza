@@ -1,78 +1,71 @@
 # Deployment field notes
 
-Short notes on real problems hit while building and deploying. Each covers what happened, how I found the cause, the fix, and what I'd change.
+Real problems hit while building, deploying and testing. Each note covers what happened, how I found the cause, the fix, and what I'd change. The Chord notes come first, because they're the ones the Chord team can act on.
 
 ---
 
-## 1. A "custom tool" on Chord means a remote MCP server, and that shaped the architecture
+## 1. Uploading the skill *folder* as a ZIP silently breaks every reference path
 
-**What happened.** The brief asks for "a custom tool that calls an external system". The Build-a-teammate guide says only "Teammate settings → Tools … Add tool opens workspace tool settings". It doesn't say what a tool *is*. I had planned a plain REST API.
+**What happened.** The docs show a skill as a folder (`builder-support/SKILL.md`, `builder-support/references/faq.md`), so I zipped the folder `monaliza-pizza-ordering/` and uploaded it. The review screen listed the files as `monaliza-pizza-ordering/SKILL.md` and `monaliza-pizza-ordering/references/policies.md`. My `SKILL.md` says "Read `references/policies.md`", and the docs say "The path in the instructions must match the uploaded file". With the folder prefix, they don't match, and **nothing warns you**. The upload succeeds and the agent would simply fail to find its references at runtime.
 
-**How I found the cause.** The docs index lists "Remote tools through MCP", and the [MCP connections](https://api.chordhq.xyz/docs/mcp-servers/) page says Chord is the MCP client, and the server "must support Streamable HTTP at a public HTTPS URL". It must not use private or loopback addresses, and auth is `none`/`bearer`/`api_key`/`oauth`. There is no REST or OpenAPI tool type.
+**How I found it.** I read the "Review your source material" dialog line by line before creating the teammate, and compared the stored paths with the paths written in `SKILL.md`.
 
-**Fix.** I built the tool as an MCP server using the official TypeScript SDK in **stateless** Streamable HTTP mode (a fresh server per POST, JSON responses), with bearer auth. Stateless MCP plus an in-memory database means exactly one replica, so the Azure app is pinned to `min = max = 1`. I also wrote `scripts/smoke-test.mjs`, which calls the deployed server with a real MCP client, because Chord's own `/health` probe only performs tool discovery and never calls a tool.
+**Fix.** I re-zipped with `SKILL.md` and `references/` at the ZIP root (`cd skill && zip -r ../skill.zip SKILL.md references`). Side effect: the skill was then named "Untitled skill", because the name seems to come from the folder. I renamed it through the Skills API when publishing v2.
 
 **What I'd change in Chord.**
-- Put one sentence in Build-a-teammate step 5: "Tools are remote MCP servers. See MCP connections." Link a 30-line minimal server example (Node and Python).
-- Add a **"Test tool call"** button or endpoint (`POST …/mcp-servers/{id}/tools/{name}/call` with sample args). Today the only way to prove a tool *executes* is a full chat turn that spends credits and depends on the model choosing the tool.
+- Strip a single common top-level folder from uploaded ZIPs (most tools that zip a folder add one), or keep the prefix but resolve paths relative to `SKILL.md`.
+- At review time, lint the instructions: find backticked paths in `SKILL.md` that don't exist in the package and show "`references/policies.md` is mentioned but not uploaded".
 
 ---
 
-## 2. Azure refused the region: `RequestDisallowedByAzure`
+## 2. Tools: the API docs say MCP only, the app has more, and there's no way to test a tool call
 
-**What happened.** The first deploy to `westeurope` failed while creating the container registry:
+**What happened.** The brief asks for "a custom tool". The API docs only describe remote MCP servers ("Your server must support Streamable HTTP at a public HTTPS URL"), so I built an MCP server. Then the app's **Admin → Channels & Tools → Tools** page showed three options: **Catalogues** (menu/price lists), **Custom tools (MCP)** and **Custom tools (API)** with *Import OpenAPI*. The last two aren't in the API docs at all. A Catalogue would have fit a pizza menu perfectly.
 
-```
-ERROR: (RequestDisallowedByAzure) Resource 'monalizapizza91fe94' was disallowed by Azure:
-The selected region is currently not accepting new customers: https://aka.ms/locationineligible.
-```
+**How I found it.** Teammate settings → *Add tool* links to `/admin/channels?tab=tools`, which lists all three.
 
-**How I found the cause.** The resource group had been created fine; only the registry failed. The message points at subscription-type capacity restrictions (this is a Sponsorship subscription), not at a naming or quota problem.
+**What worked well.** Registering the MCP server in the app took a minute. Discovery found all 6 tools, and the health probe returned `{"status":"ok","latency_ms":226}`. I ran both through the app's own API proxy (`/api/proxy/v1/workspaces/{ws}/mcp-servers/{id}/tools` and `/health`), so this check cost no credits.
 
-**Fix.** I deleted the resource group and redeployed to `southafricanorth`, which is also closer to Nigeria. The deploy script now takes `AZURE_LOCATION` and defaults to `southafricanorth`.
-
-**Lesson for any builder guide.** Name a fallback region in the deploy docs, and make scripts take region as a parameter from day one.
+**What I'd change in Chord.**
+- Document Catalogues and REST/OpenAPI tools next to MCP, with a short "which one should I use?" table. Build-a-teammate step 5 should link to it.
+- Add a **"Test tool call"** button or endpoint with sample arguments. Today the health probe only performs discovery. The only way to prove a tool *executes* is a real chat turn, which costs credits and depends on the model choosing the tool. With 50 credits for the whole exercise, that matters.
 
 ---
 
-## 3. Azure CLI crashed with a misleading `JSONDecodeError` during a transient outage
+## 3. The default autonomy, "Suggest, I approve", is wrong for a customer-facing ordering agent
 
-**What happened.** `az containerapp env create` died after a few minutes with a long Python traceback ending in:
+**What happened.** The create-teammate form defaults Autonomy to **"Suggest, I approve"**. For a WhatsApp ordering agent, a human approving each `create_order` would stall every customer at the payment step. That's exactly the bottleneck the agent exists to remove.
 
-```
-json.decoder.JSONDecodeError: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
-```
+**Fix.** I set **"Act independently"** at creation. The server then enforces the rules that matter: it prices orders itself, confirms payment only through Paystack, and lets only the kitchen board move an order to preparing or ready.
 
-**How I found the cause.** Further up the traceback, the real error was `HTTPError: Service Unavailable` with an HTML body ("Our services aren't available right now"). Azure Resource Manager returned a transient 503 while the CLI was *polling* the long-running operation, and the CLI tried to parse the HTML as JSON. The operation itself was still running: `az containerapp env show` reported `provisioningState: Waiting`, and it reached `Succeeded` a few minutes later.
-
-**Fix.** I polled the provisioning state instead of retrying the create, and made the deploy script idempotent (`show || create`), so a re-run picks up where it failed.
-
-**What I'd carry over to Chord.** Chord's MCP `/health` already returns HTTP 200 with `status: "error"`. That's the right idea, but it's easy to miss. Always return a JSON error envelope (even from gateways and proxies), and say clearly in the response when an operation is *still in progress* versus *failed*.
+**What I'd change in Chord.** Explain on the form what each autonomy level does to *tool calls*, or ask "Will this teammate talk to customers?" and suggest a level. One sentence like "Suggest, I approve: tool actions wait for your approval in Activity" would prevent a confusing first test.
 
 ---
 
-## 4. No Paystack test key during the build: deploy anyway and prove the error path
+## 4. The tool can't see who the customer is, and a proactive "ready" message needs a fake takeover
 
-**What happened.** The Paystack test secret key wasn't available while I was deploying.
+**What happened.** The tools need the customer's WhatsApp number, to find their orders and push "your pizza is ready". Nothing in the MCP docs passes conversation context (channel, participant, thread) to the tool. The simulator collects only a name ("no phone number is needed"). Separately, `POST /v1/threads/{id}/messages` only works on a `human_active` thread and otherwise returns `409 INVALID_STATE`.
 
-**How I worked around it.** The server refuses to start without an `sk_test_` key, by design: the brief forbids live keys, so the config guards against them. I deployed with a placeholder `sk_test_…` value. That let me verify the real failure path against the live Paystack API: `create_order` called `POST /transaction/initialize`, Paystack answered 401, the server mapped it to `payment_provider_error` (provider kind `auth`), and **no order was persisted**. The deploy script lets shell variables override `.env`, and it bumps an env var on each run, because changing only a Container Apps *secret* doesn't restart the app.
+**Workaround.** The order code (MP-1234) is the primary key, and the phone number is an optional tool argument. The optional notifier (`src/notifier.ts`) does `take-over → message → hand-back`, which logs a fake "human takeover". Pull-based "status?" is the default, and in testing the agent answered it correctly.
 
----
-
-## 5. Who is the customer? The tool can't see the WhatsApp sender
-
-**What happened.** The tools need the customer's WhatsApp number, to find their orders and to push a "ready" message. The MCP connection docs describe only the server-level credential Chord sends (bearer or API key). Nothing documents per-conversation context such as channel, participant or thread id reaching the tool.
-
-**Workaround.** `customer_phone` is an optional tool argument, and the skill tells the agent to use the WhatsApp number if the conversation exposes it, otherwise to ask once. The order code (MP-1234) is the primary key, so the flow works without a phone number.
-
-**What I'd change in Chord.** Forward the conversation context to MCP tools, either as `_meta` on `tools/call` or as signed headers (`X-Chord-Thread-Id`, `X-Chord-Channel`, `X-Chord-Participant`). Tools could then identify the customer without trusting model-supplied arguments, and could reply into the right thread later.
+**What I'd change in Chord.**
+- Forward context to MCP tools (`_meta` or signed `X-Chord-Thread-Id` / `X-Chord-Participant` headers), so tools can identify the customer without trusting model-supplied arguments.
+- Add a **system "notify" message** that posts into a thread without changing control state. Payment, delivery and booking businesses all need it.
 
 ---
 
-## 6. Proactive "your pizza is ready" needs a fake human takeover
+## 5. Live test: the agent quoted ₦6,500, and Paystack charged ₦6,700.51
 
-**What happened.** The best moment in this product is pinging the customer when the pizza is ready. Chord's thread API has `POST /v1/threads/{id}/messages`, but it only works when the thread is `human_active`. Otherwise it returns `409 INVALID_STATE`.
+**What happened.** The first real end-to-end order (through Chord, then the Paystack test checkout) showed **"Pay NGN 6,700.51"** for a ₦6,500 order. The server accepted the payment correctly (it only flags *under*payment), but the customer had been quoted a different amount than they were charged.
 
-**Workaround.** `src/notifier.ts` finds the thread by participant phone, then does `take-over → message → hand-back`, which is three calls. The audit log will show a "human takeover" for what is really a system notification. The feature is opt-in (`CHORD_API_KEY`), and the pull-based "status?" flow remains the default.
+**How I found the cause.** (6,500 + 100) / (1 − 0.015) = 6,700.51 exactly, which is Paystack's local fee (1.5% + ₦100) grossed up. The Paystack account is set to pass fees to the customer.
 
-**What I'd change in Chord.** Add a first-class **"notify"** or **"system message"** endpoint that posts into a thread without changing control state, ideally callable with the thread id passed to the tool (see note 5). Webhook-driven businesses (payments, deliveries, bookings) all need this.
+**Fix.** A new `PAYSTACK_FEES_PASSED_TO_CUSTOMER` setting makes the tools return `amount_to_pay_at_checkout`, and the skill tells the customer both numbers up front. I re-tested in the simulator: "Total: ₦16,100. Paystack adds a small processing fee, so the checkout page will show about ₦16,446.70." The go-live note tells the owner to choose either absorbing the fee or passing it on.
+
+---
+
+## 6. Infrastructure: an Azure region refusal and two transient network failures
+
+- **`RequestDisallowedByAzure: The selected region is currently not accepting new customers`** in `westeurope` (Sponsorship subscription) while creating the container registry. I moved everything to `southafricanorth`, which is also closer to Nigeria. The deploy script takes `AZURE_LOCATION`.
+- **`az containerapp env create` crashed with `JSONDecodeError`.** Further up the traceback was the real cause: an ARM **503** HTML page, returned while the CLI polled a long-running operation. The environment was still provisioning (`provisioningState: Waiting` → `Succeeded`). I made the deploy script idempotent (`show || create`) and re-ran it.
+- **Local DNS flapped** (`nodename nor servname provided`) during two deploys. The extension check is now non-fatal, and the deploy is wrapped in a retry. A Container Apps secret change alone doesn't restart the app, so the script also bumps a `DEPLOYED_AT` env var to force a new revision.

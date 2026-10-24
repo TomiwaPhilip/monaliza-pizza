@@ -8,7 +8,7 @@
 
 **What must be true before real customers use it:**
 
-1. **Real Paystack account.** Complete Paystack business verification, then switch the server from the test key to your live key. You also need to set the webhook URL in Paystack. Refunds are done by you in the Paystack dashboard.
+1. **Real Paystack account.** Complete Paystack business verification, then switch the server from the test key to your live key. You also need to set the webhook URL in Paystack. Refunds are done by you in the Paystack dashboard. Decide who pays Paystack's fee (about 1.5% + ₦100). Today the customer pays it, and the assistant warns them up front (for example, ₦16,100 becomes ≈₦16,446.70 at checkout).
 2. **Your WhatsApp number on Chord.** Connect a WhatsApp Business number to the Chord teammate. The test setup only works in the simulator.
 3. **Orders survive restarts.** Today orders live in the server's memory. If the server restarts (an update or a crash), open orders disappear from the board, though payments stay in Paystack. Before launch, move orders into a small database.
 4. **Someone gets alerted.** Set up an alert (SMS or WhatsApp to you) when the server is down, when Paystack errors repeat, or when an order goes to **"needs review"**. That status means a customer paid the wrong amount or paid after cancelling, and you need to sort it out with them.
