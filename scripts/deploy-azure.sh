@@ -24,7 +24,7 @@ TAG="$(git rev-parse --short HEAD 2>/dev/null || date +%s)$(git diff --quiet 2>/
 IMAGE="$ACR.azurecr.io/monaliza-pizza:$TAG"
 
 az account set --subscription "$SUBSCRIPTION"
-az extension add --name containerapp --upgrade --only-show-errors >/dev/null
+az extension add --name containerapp --upgrade --only-show-errors >/dev/null || az extension show --name containerapp -o none
 for ns in Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry; do
   az provider register --namespace "$ns" --only-show-errors >/dev/null
 done
