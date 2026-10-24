@@ -1,6 +1,6 @@
 # Submission: Monaliza Pizza WhatsApp ordering teammate
 
-**Role preference:** Forward-deployed Engineering (also interested in Technical Product Management). *Edit before sending.*
+**Role preference:** Forward-deployed Engineering (also interested in Technical Product Management).*
 
 **Problem statement.** Monaliza Pizza is a one-person pizza kiosk in Monaliza Park, Abuja. On weekends, families queue for a long time, then walk back and forth across the park to check whether their pizza is ready. The owner loses sales to people who give up on the queue, and loses baking time to taking orders and payments. The Chord teammate takes the whole order on WhatsApp: it shows the menu, collects payment through a Paystack link, confirms payment, and answers "is it ready?" from a live kitchen board. The owner only bakes, and each customer walks to the kiosk once. This is worth paying for because it adds order capacity at peak hours without a second hire, and every WhatsApp order is prepaid, so there are no abandoned orders. I deliberately left out delivery inside the park, cash for WhatsApp orders, refunds and complaints (these go to the owner), loyalty and promos, and a persistent database (in-memory for the prototype).
 
