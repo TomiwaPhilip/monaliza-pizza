@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.*
+.git
+test
+docs
+skills
+scripts
+*.md
